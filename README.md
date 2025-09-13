@@ -1,5 +1,5 @@
-# Linux_interview_qna
-# Linux Interview Questions and Answers README
+
+# Linux Interview Questions and Answers 
 
 This README provides a compiled set of Linux interview questions and answers, focusing on system administration, scripting, and troubleshooting. It's based on common scenarios encountered in Linux environments, such as log management, user administration, performance issues, and web server problems. The content is structured in a Q&A format for easy reference and preparation.
 
@@ -18,15 +18,33 @@ These questions cover practical commands, scripts, and step-by-step troubleshoot
 - [Nginx Application Issues](#nginx-application-issues)
 - [SSH Troubleshooting](#ssh-troubleshooting)
 
+---
+
 ## Log Management
 
 ### 1. How do you find and list log files older than 7 days in the `/var/log` folder?
 **Answer:**  
 Use the `find` command:  
-- To find all `.log` files: `find /var/log -type f -name "*.log"` (`-type f` for files, `-type d` for directories).  
-- To find files older than 7 days: `find /var/log -type f -name "*.log" -mtime +7`.  
-- To list with details: `find /var/log -type f -name "*.log" -mtime +7 -exec ls -ltr {} \;` ({} holds file details).  
-- To remove them: `find /var/log -type f -name "*.log" -mtime +7 -exec rm {} \;`.
+- To find all `.log` files:  
+  ```bash
+  find /var/log -type f -name "*.log"
+  ```  
+- To find files older than 7 days:  
+  ```bash
+  find /var/log -type f -name "*.log" -mtime +7
+  ```  
+- To list with details:  
+  ```bash
+  find /var/log -type f -name "*.log" -mtime +7 -exec ls -lh {} \;
+  ```  
+- To remove them (with confirmation):  
+  ```bash
+  find /var/log -type f -name "*.log" -mtime +7 -exec rm -i {} \;
+  ```  
+
+⚠️ In production, log rotation (`logrotate`) is preferred over manual deletion.
+
+---
 
 ## Automation and Scripting
 
@@ -49,26 +67,33 @@ if [ ! -d "$LOG_DIR" ]; then
     exit 1
 fi
 
-# Compress logs older than 7 days (but newer than 30 days) if not already gzipped
-find "$LOG_DIR" -type f -name "*.log" -mtime +7 -mtime -30 ! -name "*.gz" -exec gzip {} \; -exec echo "[$(date)] Compressed: {}" >> "$LOG_FILE" \;
+# Compress logs older than 7 days but newer than 30 days
+find "$LOG_DIR" -type f -name "*.log" -mtime +7 -mtime -30 ! -name "*.gz"     -exec gzip {} \; -exec echo "[$(date)] Compressed: {}" >> "$LOG_FILE" \;
 
 # Delete compressed logs older than 30 days
-find "$LOG_DIR" -type f -name "*.gz" -mtime +30 -exec rm -f {} \; -exec echo "[$(date)] Deleted: {}" >> "$LOG_FILE" \;
+find "$LOG_DIR" -type f -name "*.gz" -mtime +30     -exec rm -f {} \; -exec echo "[$(date)] Deleted: {}" >> "$LOG_FILE" \;
 
 echo "[$(date)] Log rotation completed successfully" >> "$LOG_FILE"
 ```
-Schedule: `crontab -e` and add `0 0 * * * /path/to/log_rotation.sh` for daily at midnight.
+
+Schedule with cron:  
+```bash
+crontab -e
+0 0 * * * /path/to/log_rotation.sh
+```
+
+---
 
 ### 3. How do you perform bulk user creation using a CSV file?
 **Answer:**  
-Steps:
-- Check if the CSV file exists.  
-- Ignore the header (line 1) and loop through the rest.  
-- Use a while loop to read username and password.  
+Steps:  
+- Ensure CSV exists.  
+- Skip header line.  
+- Read username and password.  
 - Create user with `useradd`.  
-- Set password with `chpasswd` (non-interactive).  
+- Set password with `chpasswd`.  
 
-Example script (`bulk_user_creation.sh`):
+Example script (`bulk_user_creation.sh`):  
 ```bash
 #!/bin/bash
 CSV_FILE="users.csv"
@@ -91,14 +116,16 @@ done
 echo "[$(date)] Bulk user creation completed" >> "$LOG_FILE"
 ```
 
+---
+
 ### 4. How would you write a Bash script to monitor service health?
 **Answer:**  
-A basic script checks if a service is running and monitors CPU/memory usage.
+Check if service is running and log CPU/memory usage.
 
-Example script (`service_health_monitor.sh`):
+Example script (`service_health_monitor.sh`):  
 ```bash
 #!/bin/bash
-SERVICE="nginx"  # Change to your service
+SERVICE="nginx"  # change as needed
 LOG_FILE="service_health.log"
 
 if systemctl is-active --quiet "$SERVICE"; then
@@ -108,103 +135,160 @@ else
     systemctl restart "$SERVICE"
 fi
 
-# Check CPU and memory
 CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
 MEM_USAGE=$(free -m | awk '/Mem/{printf "%.2f", $3/$2 * 100.0}')
 
 echo "[$(date)] CPU: $CPU_USAGE% | Memory: $MEM_USAGE%" >> "$LOG_FILE"
 ```
-Schedule via cron for regular checks.
+
+Schedule with cron for regular checks.
+
+---
 
 ## File Management
 
 ### 5. How do you find and delete files over 100 MB in `/var/`?
-**Answer:**
+**Answer:**  
 ```bash
 find /var/ -type f -size +100M -exec rm -i {} \;
-```
+```  
+The `-i` flag prompts confirmation before deletion.
+
+---
 
 ## User and Login Tracking
 
 ### 6. How do you get the list of users who logged in today?
-**Answer:**
+**Answer:**  
 ```bash
 last -F | grep "$(date '+%b %e')" | awk '{print $1}' | sort | uniq
-```
+```  
+
+This extracts usernames from today's logins.
+
+---
 
 ## Web Server Troubleshooting
 
-### 7. If a website doesn’t load (not accessible) and you have access to the server, how would you investigate?
-**Answer:**
-- Check if the web server is running: `systemctl status nginx`  
-- Inspect logs: `tail -f /var/log/nginx/error.log`  
-- Verify document root: `/var/www/html/index.html` exists  
-- Check configuration: `nginx -t`  
+### 7. If a website doesn’t load (not accessible) and you have access to the server where it's hosted, how would you investigate?
+**Answer:**  
+1. Check if the service is running:  
+   ```bash
+   systemctl status nginx
+   ```  
+2. Inspect logs:  
+   ```bash
+   tail -f /var/log/nginx/error.log
+   ```  
+3. Verify document root files exist.  
+4. Test configuration:  
+   ```bash
+   nginx -t
+   ```  
+5. Ensure firewall/security groups allow traffic on port 80/443.
+
+---
 
 ## Text Processing
 
 ### 8. Using the sed command, how do you remove the first and last line of a file?
-**Answer:**
+**Answer:**  
 ```bash
-# View
 sed '1d;$d' file.txt
+```  
 
-# In-place
+For in-place edit:  
+```bash
 sed -i '1d;$d' file.txt
 ```
 
+---
+
 ## Cloud Instance Access
 
-### 9. If you've lost your PEM file, how would you access a cloud instance?
-**Answer:**
-- PEM files cannot be restored.  
-- Use AWS Session Manager or EC2 Instance Connect.  
-- Generate a new key: `ssh-keygen -t rsa -f new_key`.  
-- Add public key to `~/.ssh/authorized_keys`.  
-- Connect: `ssh -i new_key user@instance-ip`.  
+### 9. If you've lost your PEM file, how would you access a cloud instance? Can you restore the deleted PEM file? How would you connect to the cloud provider instance?
+**Answer:**  
+- PEM files **cannot be restored**.  
+- Alternatives:  
+  - Use AWS Session Manager or EC2 Instance Connect (if enabled).  
+  - Generate a new key pair and add its public key to `~/.ssh/authorized_keys` of the instance.  
+  - Access by attaching the disk to another instance if locked out.  
+
+---
 
 ## Disk Space Management
 
 ### 10. If `/var` is almost 90% full, what would be your next steps?
-**Answer:**
-- Check usage: `du -sh /var/*`  
-- Clean old logs, cache, or crashes  
-- Configure logrotate  
+**Answer:**  
+1. Check usage:  
+   ```bash
+   du -sh /var/*
+   ```  
+2. Investigate large subdirectories (`/var/log`, `/var/cache`, `/var/spool`).  
+3. Archive/remove old logs.  
+4. Configure `logrotate`.  
+5. Clear package caches:  
+   ```bash
+   apt clean   # Debian/Ubuntu
+   yum clean all  # RHEL/CentOS
+   ```  
+
+---
 
 ## Performance Optimization
 
 ### 11. If a Linux server is slow due to high CPU utilization, how would you fix it?
-**Answer:**
-- Identify process: `top` or `htop`  
-- Kill or `renice` non-critical processes  
-- Investigate logs for root cause  
+**Answer:**  
+1. Identify processes:  
+   ```bash
+   top
+   htop
+   ```  
+2. Kill non-critical processes:  
+   ```bash
+   kill <PID>
+   ```  
+3. Lower priority for heavy processes:  
+   ```bash
+   renice 19 -p <PID>
+   ```  
+4. Check logs, consider scaling resources.
+
+---
 
 ## Nginx Application Issues
 
-### 12. If an application on Nginx returns "connection refused," how would you fix it?
-**Answer:**
-- Check service: `systemctl status nginx`  
-- Verify firewall & ports  
-- AWS: security groups for 80/443  
+### 12. If an application deployed on Nginx returns "connection refused," how would you fix it? Also, explain common scenarios for 502 Bad Gateway and 404 Not Found errors.
+**Answer:**  
+- **Connection refused**: service not running, wrong port, or firewall blocking.  
+  - Check Nginx status.  
+  - Ensure firewall/security groups allow traffic.  
 
-**502 Bad Gateway:** Backend service down/misconfigured.  
-**404 Not Found:** File missing or misconfigured location block.  
+- **502 Bad Gateway**: Nginx can't reach upstream.  
+  - Backend crashed, wrong upstream config, or timeouts.  
+
+- **404 Not Found**: file/resource missing.  
+  - Check document root and Nginx location blocks.  
+
+---
 
 ## SSH Troubleshooting
 
-### 13. If SSH to an instance fails, what could be the causes?
-**Answer:**
-- Wrong IP address  
-- PEM file permission issues  
-- Firewall/security groups blocking port 22  
-- SSH service not running  
+### 13. If SSH to an instance fails, what could be the causes and how would you troubleshoot?
+**Answer:**  
+- Wrong IP address.  
+- Incorrect PEM permissions (must be 600).  
+- Firewall blocking port 22.  
+- Cloud security group rules missing SSH.  
+- SSH service down (`systemctl status ssh`).  
 
 ---
 
 ## Additional Resources
-- Use `man <command>` for more details.  
-- Practice in VirtualBox or AWS EC2.  
+
+- Use `man` pages for command help.  
 - Tools: `htop`, `logrotate`, `systemctl`.  
+- Practice in VMs or cloud labs.
 
 ---
-If you have suggestions or more questions to add, open an **issue** or **pull request**!
+*pull request**!
